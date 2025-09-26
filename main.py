@@ -46,7 +46,7 @@ def cleanup_old_backups():
     try:
         backup_files = []
         for file in os.listdir(BACKUP_DIR):
-            if file.startswith("data_backup_") and file.endswith(".json"):
+            if (file.startswith("data_backup_") or file.startswith("manual_backup_")) and file.endswith(".json"):
                 backup_files.append(os.path.join(BACKUP_DIR, file))
         
         backup_files.sort(key=os.path.getmtime, reverse=True)
@@ -62,7 +62,7 @@ def get_backup_files():
     try:
         backup_files = []
         for file in os.listdir(BACKUP_DIR):
-            if file.startswith("data_backup_") and file.endswith(".json"):
+            if (file.startswith("data_backup_") or file.startswith("manual_backup_")) and file.endswith(".json"):
                 backup_files.append(file)
         backup_files.sort(reverse=True)
         return backup_files[:5]  # إرجاع آخر 5 نسخ
@@ -86,6 +86,8 @@ def manual_backup():
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_file = os.path.join(BACKUP_DIR, f"manual_backup_{timestamp}.json")
         shutil.copy2(DB_FILE, backup_file)
+        # تنظيف النسخ القديمة للحفاظ على المساحة
+        cleanup_old_backups()
         return backup_file
     except:
         return None
