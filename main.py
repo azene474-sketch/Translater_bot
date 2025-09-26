@@ -1,6 +1,8 @@
 import os
 import json
 import asyncio
+import shutil
+import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from deep_translator import GoogleTranslator
@@ -10,8 +12,12 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "PUT_YOUR_TOKEN_HERE")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "PUT_YOUR_ADMIN_ID"))
 
 DB_FILE = "data.json"
+BACKUP_DIR = "backups"
 
-# ===== إعداد ملف البيانات =====
+# ===== إعداد ملف البيانات والنسخ الاحتياطية =====
+if not os.path.exists(BACKUP_DIR):
+    os.makedirs(BACKUP_DIR)
+
 if not os.path.exists(DB_FILE):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump({"users": [], "channels": []}, f, ensure_ascii=False, indent=4)
@@ -21,8 +27,68 @@ def load_data():
         return json.load(f)
 
 def save_data(data):
+    # إنشاء نسخة احتياطية قبل الحفظ
+    create_backup()
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+
+def create_backup():
+    """إنشاء نسخة احتياطية من ملف البيانات"""
+    if os.path.exists(DB_FILE):
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_file = os.path.join(BACKUP_DIR, f"data_backup_{timestamp}.json")
+        shutil.copy2(DB_FILE, backup_file)
+        # الاحتفاظ بآخر 10 نسخ احتياطية فقط
+        cleanup_old_backups()
+
+def cleanup_old_backups():
+    """حذف النسخ الاحتياطية القديمة والاحتفاظ بآخر 10 نسخ"""
+    try:
+        backup_files = []
+        for file in os.listdir(BACKUP_DIR):
+            if file.startswith("data_backup_") and file.endswith(".json"):
+                backup_files.append(os.path.join(BACKUP_DIR, file))
+        
+        backup_files.sort(key=os.path.getmtime, reverse=True)
+        
+        # حذف النسخ الزائدة عن 10
+        for backup_file in backup_files[10:]:
+            os.remove(backup_file)
+    except:
+        pass
+
+def get_backup_files():
+    """الحصول على قائمة بملفات النسخ الاحتياطية"""
+    try:
+        backup_files = []
+        for file in os.listdir(BACKUP_DIR):
+            if file.startswith("data_backup_") and file.endswith(".json"):
+                backup_files.append(file)
+        backup_files.sort(reverse=True)
+        return backup_files[:5]  # إرجاع آخر 5 نسخ
+    except:
+        return []
+
+def restore_backup(backup_filename):
+    """استعادة نسخة احتياطية"""
+    try:
+        backup_path = os.path.join(BACKUP_DIR, backup_filename)
+        if os.path.exists(backup_path):
+            shutil.copy2(backup_path, DB_FILE)
+            return True
+    except:
+        pass
+    return False
+
+def manual_backup():
+    """إنشاء نسخة احتياطية يدوية"""
+    try:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_file = os.path.join(BACKUP_DIR, f"manual_backup_{timestamp}.json")
+        shutil.copy2(DB_FILE, backup_file)
+        return backup_file
+    except:
+        return None
 
 def add_user(user_id):
     data = load_data()
