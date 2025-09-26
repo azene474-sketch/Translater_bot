@@ -259,6 +259,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===== التعامل مع الرسائل =====
 async def translate_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_user or not update.message:
+        return
     user_id = update.effective_user.id
     text = update.message.text.strip()
     if not text:
