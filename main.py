@@ -194,6 +194,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("➕ إضافة قناة اشتراك", callback_data="admin_add_channel")],
             [InlineKeyboardButton("➖ إزالة قناة اشتراك", callback_data="admin_remove_channel")],
             [InlineKeyboardButton("📌 عرض قنوات الاشتراك", callback_data="admin_show_channels")],
+            [InlineKeyboardButton("💾 إنشاء نسخة احتياطية", callback_data="admin_create_backup")],
+            [InlineKeyboardButton("📂 استعادة نسخة احتياطية", callback_data="admin_restore_backup")],
             [InlineKeyboardButton("↩️ رجوع", callback_data="back_to_main")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -227,6 +229,28 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(f"📌 القنوات المفروضة كشرط للاشتراك:\n{channels_text}")
         else:
             await query.edit_message_text("⚠️ لا توجد أي قناة مفروضة حالياً.")
+    elif data == "admin_create_backup" and user_id == ADMIN_ID:
+        backup_file = manual_backup()
+        if backup_file:
+            backup_name = os.path.basename(backup_file)
+            await query.edit_message_text(f"✅ تم إنشاء نسخة احتياطية يدوية:\n{backup_name}")
+        else:
+            await query.edit_message_text("⚠️ فشل في إنشاء النسخة الاحتياطية.")
+    elif data == "admin_restore_backup" and user_id == ADMIN_ID:
+        backup_files = get_backup_files()
+        if not backup_files:
+            await query.edit_message_text("⚠️ لا توجد نسخ احتياطية متاحة للاستعادة.")
+            return
+        keyboard = [[InlineKeyboardButton(f"📄 {file}", callback_data=f"restore_{file}")] for file in backup_files]
+        keyboard.append([InlineKeyboardButton("↩️ رجوع", callback_data="admin_panel")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text("اختر النسخة الاحتياطية التي تريد استعادتها:", reply_markup=reply_markup)
+    elif data.startswith("restore_") and user_id == ADMIN_ID:
+        backup_filename = data.replace("restore_", "")
+        if restore_backup(backup_filename):
+            await query.edit_message_text(f"✅ تم استعادة النسخة الاحتياطية:\n{backup_filename}\n\n⚠️ يُنصح بإعادة تشغيل البوت لضمان تحديث البيانات.")
+        else:
+            await query.edit_message_text("⚠️ فشلت استعادة النسخة الاحتياطية.")
     elif data == "back_to_main":
         await show_menu(update, context)
         context.user_data.pop("mode", None)
